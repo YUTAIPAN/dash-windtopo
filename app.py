@@ -224,11 +224,12 @@ def update_timeseries(station_ids, selected_case):
 
 @app.callback(
     Output('hovered-station-id', 'data'),
-    Input({'type': 'station-timeseries', 'index': dash.ALL}, 'hoverData')
+    Input({'type': 'station-timeseries', 'index': dash.ALL}, 'hoverData'),
 )
 def update_hovered_station_id(hover_datas):
-    for i, hover in enumerate(hover_datas):
-        if hover is not None:
+    # loop backwards: 最後觸發的圖會在後面（最新的 hover）
+    for i in reversed(range(len(hover_datas))):
+        if hover_datas[i] is not None:
             return ctx.inputs_list[0][i]['id']['index']
     return None
 
