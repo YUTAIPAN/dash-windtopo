@@ -88,7 +88,7 @@ def create_map(selected_ids):
 
 # Layout
 app.layout = html.Div([
-    html.H1("Wind Observation Interactive Viewer", style={"textAlign": "center"}),
+    html.H1("Strong wind cases, WindTopo Viewer, for JR", style={"textAlign": "center"}),
     html.Div([
         html.Div([
             dcc.Graph(id='station-map', config={
