@@ -44,8 +44,8 @@ freq_df = data_df.groupby("ID").apply(
 ).reset_index()
 
 plot_df = freq_df.merge(loc_df, on="ID", how="left")
-high_freq_df = plot_df[plot_df["obs_freq"] >= 0.004]
-low_freq_df = plot_df[plot_df["obs_freq"] < 0.004]
+high_freq_df = plot_df[plot_df["obs_freq"] >= 0.01]
+low_freq_df = plot_df[plot_df["obs_freq"] < 0.01]
 
 cases = {
     "Case 1: 2025/01/29 - 2025/02/02": ("2025-01-29", "2025-02-02"),
