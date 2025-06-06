@@ -13,7 +13,6 @@ VALID_USERNAME_PASSWORD_PAIRS = {
 app = dash.Dash(__name__)
 auth = dash_auth.BasicAuth(app, VALID_USERNAME_PASSWORD_PAIRS)
 
-
 # 用環境變數來存取憑證（Render 上會設定）
 s3 = boto3.client(
     "s3",
@@ -33,7 +32,6 @@ loc_df = loc_df[["HEAD:ID", "LATD", "LOND"]].rename(columns={"HEAD:ID": "ID"})
 
 data_df = load_csv_from_s3(BUCKET, "2024_2025_MSM_WT_ARC_small.csv")
 
-# 計算 >= 25 m/s 的出現頻率
 def calc_freq(group, column):
     return (group[column] >= 25).sum() / len(group)
 
@@ -49,7 +47,6 @@ plot_df = freq_df.merge(loc_df, on="ID", how="left")
 high_freq_df = plot_df[plot_df["obs_freq"] >= 0.004]
 low_freq_df = plot_df[plot_df["obs_freq"] < 0.004]
 
-# 案例定義
 cases = {
     "Case 1: 2025/01/29 - 2025/02/02": ("2025-01-29", "2025-02-02"),
     "Case 2: 2025/02/13 - 2025/02/15": ("2025-02-13", "2025-02-15"),
@@ -58,19 +55,29 @@ cases = {
     "Case 5: 2025/03/25 - 2025/03/28": ("2025-03-25", "2025-03-28"),
 }
 
-# 建立 Dash app
 app.title = "WindTopo Timeseries viewer"
 
-# 地圖圖層
-def create_map(selected_ids):
+def create_map(selected_ids, hover_id=None):
     map_fig = go.Figure()
     for df, color, name in [(low_freq_df, 'blue', 'Low Frequency'), (high_freq_df, 'red', 'High Frequency')]:
-        opacities = [1.0 if sid in selected_ids else 0.4 for sid in df["ID"]]
+        marker_colors = []
+        marker_opacities = []
+        for sid in df["ID"]:
+            if sid == hover_id:
+                marker_colors.append("yellow")
+                marker_opacities.append(1.0)
+            elif sid in selected_ids:
+                marker_colors.append(color)
+                marker_opacities.append(1.0)
+            else:
+                marker_colors.append(color)
+                marker_opacities.append(0.4)
+
         map_fig.add_trace(go.Scattermapbox(
             lat=df["LATD"],
             lon=df["LOND"],
             mode='markers',
-            marker=dict(size=8, color=color, opacity=opacities),
+            marker=dict(size=8, color=marker_colors, opacity=marker_opacities),
             text=df["ID"],
             name=name,
             hoverinfo="text"
@@ -86,7 +93,6 @@ def create_map(selected_ids):
     )
     return map_fig
 
-# Layout
 app.layout = html.Div([
     html.H1("Strong wind cases, WindTopo Viewer, for JR", style={"textAlign": "center"}),
     html.Div([
@@ -95,7 +101,7 @@ app.layout = html.Div([
                 "scrollZoom": True,
                 "displayModeBar": False
             }),
-            dcc.Store(id='map-state')  # 儲存地圖視角用
+            dcc.Store(id='map-state'),
         ], style={'width': '35%', 'display': 'inline-block', 'verticalAlign': 'top'}),
         html.Div([
             dcc.Dropdown(
@@ -107,19 +113,20 @@ app.layout = html.Div([
             ),
             html.Button("Reset", id='reset-button', n_clicks=0, style={"margin-bottom": "10px"}),
             dcc.Store(id='selected-station-ids', data=[]),
+            dcc.Store(id='hovered-station-id', data=None),
             html.Div(id='timeseries-container', style={'height': '800px', 'overflowY': 'scroll'})
         ], style={'width': '63%', 'display': 'inline-block', 'verticalAlign': 'top'})
     ])
 ])
 
-# 更新地圖
 @app.callback(
     Output('station-map', 'figure'),
     Input('selected-station-ids', 'data'),
+    Input('hovered-station-id', 'data'),
     State('map-state', 'data')
 )
-def update_map_figure(selected_ids, map_state):
-    map_fig = create_map(selected_ids)
+def update_map_figure(selected_ids, hover_id, map_state):
+    map_fig = create_map(selected_ids, hover_id)
     if map_state and 'center' in map_state and 'zoom' in map_state:
         map_fig.update_layout(
             mapbox_center=map_state['center'],
@@ -135,20 +142,15 @@ def update_map_figure(selected_ids, map_state):
 def save_map_state(relayout_data, current_state):
     if not relayout_data:
         return current_state
-
-    # 如果 current_state 是 None，初始化為空字典
     if current_state is None:
         current_state = {}
-
     zoom = relayout_data.get('mapbox.zoom', current_state.get('zoom', 7))
     center = relayout_data.get('mapbox.center', current_state.get('center', {
         "lat": loc_df["LATD"].mean(),
         "lon": loc_df["LOND"].mean()
     }))
-
     return {"zoom": zoom, "center": center}
 
-# 點地圖 → 更新選取站點
 @app.callback(
     Output('selected-station-ids', 'data'),
     Input('station-map', 'clickData'),
@@ -165,7 +167,6 @@ def update_station_list(clickData, reset_clicks, selected_ids):
         selected_ids.append(clicked_id)
     return selected_ids
 
-# 根據選取站點與案例產生圖
 @app.callback(
     Output('timeseries-container', 'children'),
     Input('selected-station-ids', 'data'),
@@ -197,7 +198,6 @@ def update_timeseries(station_ids, selected_case):
                                      mode='lines', name='WT', line=dict(color='red', dash='dash')))
             fig.add_trace(go.Scatter(x=site_df["VALIDTIME"], y=site_df["arc_gust_pred"],
                                      mode='lines', name='ARC', line=dict(color='blue', dash='dot')))
-            # 加上 Y=20, 25 的綠色虛線
             for threshold in [20, 25]:
                 fig.add_shape(
                     type="line",
@@ -213,9 +213,25 @@ def update_timeseries(station_ids, selected_case):
                 height=400, width=900
             )
 
-        children.append(dcc.Graph(figure=fig, style={'margin-bottom': '20px'}))
+        graph = dcc.Graph(
+            figure=fig,
+            style={'margin-bottom': '20px'},
+            id={'type': 'station-timeseries', 'index': point_id}
+        )
+        children.append(graph)
 
     return children
 
+@app.callback(
+    Output('hovered-station-id', 'data'),
+    Input({'type': 'station-timeseries', 'index': dash.ALL}, 'hoverData')
+)
+def update_hovered_station_id(hover_datas):
+    for i, hover in enumerate(hover_datas):
+        if hover is not None:
+            return ctx.inputs_list[0][i]['id']['index']
+    return None
+
 if __name__ == '__main__':
-    app.run(debug=False, host="0.0.0.0", port=10000)
+    app.run_server(debug=False, host="0.0.0.0", port=10000)
+
