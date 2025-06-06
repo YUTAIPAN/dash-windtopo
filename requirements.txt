@@ -2,4 +2,5 @@ dash
 plotly
 pandas
 boto3
+dash-auth
 s3fs

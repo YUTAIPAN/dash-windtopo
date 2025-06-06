@@ -4,6 +4,15 @@ from dash import Dash, dcc, html, Input, Output, State, ctx
 import boto3
 from io import StringIO
 import os
+import dash
+import dash_auth
+
+VALID_USERNAME_PASSWORD_PAIRS = {
+    '2441wnicom': '2441wnicom'}
+
+app = dash.Dash(__name__)
+auth = dash_auth.BasicAuth(app, VALID_USERNAME_PASSWORD_PAIRS)
+
 
 # 用環境變數來存取憑證（Render 上會設定）
 s3 = boto3.client(
