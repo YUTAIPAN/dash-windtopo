@@ -59,8 +59,7 @@ cases = {
 }
 
 # 建立 Dash app
-app = Dash(__name__)
-app.title = "Wind Timeseries Viewer"
+app.title = "WindTopo Timeseries viewer"
 
 # 地圖圖層
 def create_map(selected_ids):
