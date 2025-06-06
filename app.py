@@ -20,7 +20,7 @@ def load_csv_from_s3(bucket, key):
 BUCKET = "windtopo-visualization"
 
 loc_df = load_csv_from_s3(BUCKET, "ARC.JP_pacific.tbl")
-data_df = load_csv_from_s3(BUCKET, "2024_2025_MSM_WT_ARC.csv")
+data_df = load_csv_from_s3(BUCKET, "2024_2025_MSM_WT_ARC_small.csv")
 
 # 計算 >= 25 m/s 的出現頻率
 def calc_freq(group, column):
